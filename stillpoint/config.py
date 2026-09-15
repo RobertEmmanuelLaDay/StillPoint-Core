@@ -1,11 +1,8 @@
 from __future__ import annotations
-import os
+
+import json
 from pathlib import Path
 
-def root() -> Path:
-    return Path(os.environ.get("STILLPOINT_ROOT", Path.cwd()))
 
-def state_dir() -> Path:
-    p = root() / "state"
-    p.mkdir(parents=True, exist_ok=True)
-    return p
+def load_json(path: Path) -> dict:
+    return json.loads(path.read_text(encoding="utf-8"))
