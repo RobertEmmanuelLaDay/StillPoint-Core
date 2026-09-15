@@ -1,0 +1,33 @@
+{
+  "version": "0.2.0a1",
+  "name": "StillPoint",
+  "package": "stillpoint",
+  "last_completed_milestone": "temporal-authority-layer",
+  "schema_version": 5,
+  "tests": {
+    "full_suite": {
+      "passed": 209,
+      "failed": 0
+    },
+    "temporal_authority": {
+      "passed": 37,
+      "failed": 0
+    }
+  },
+  "migrations": [
+    "001_baseline_v5.sql",
+    "002_packet2_artifacts.sql",
+    "003_repair_pass2_action_state.sql",
+    "004_runtime_operations.sql",
+    "005_temporal_authority.sql"
+  ],
+  "git": {
+    "feature_branch": "feature/temporal-authority-layer",
+    "export_repo": "RobertEmmanuelLaDay/StillPoint-Core",
+    "note": "Temporal authority / continuing evidence layer. Exported as engineering build."
+  },
+  "external_action_adapters": {
+    "production_enabled": [],
+    "test_or_dry_run_only": ["null", "dry_run"]
+  }
+}
