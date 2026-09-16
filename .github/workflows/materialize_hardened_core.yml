@@ -1,0 +1,244 @@
+name: Materialize Hardened StillPoint Core
+
+on:
+  push:
+    branches:
+      - integration/full-core-consolidation
+    paths:
+      - transfer/READY_FINAL
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: integration/full-core-consolidation
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Configure git identity
+        run: |
+          git config user.name "StillPoint Materializer"
+          git config user.email "actions@users.noreply.github.com"
+
+      - name: Load and verify manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -f transfer/MANIFEST.env
+          test -f transfer/HARDENING_MANIFEST.env
+
+          # shellcheck disable=SC1091
+          source transfer/MANIFEST.env
+          # shellcheck disable=SC1091
+          source transfer/HARDENING_MANIFEST.env
+
+          test "$SOURCE_COMMIT" = "6fdfa67e0e6301182e727ec4e7a62c4c4b596b15"
+          test "$SOURCE_TREE" = "1cfe909cb11bc1f4087bf2cecc3010de5092febe"
+          test "$ARCHIVE_SHA256" = "1a7375d47018cbb1f78f214364e4512605cbef78e0a8d0abf07678cd58eba8a9"
+
+          test "$BASE_COMMIT" = "$SOURCE_COMMIT"
+          test "$BASE_TREE" = "$SOURCE_TREE"
+          test "$BASE_ARCHIVE_SHA256" = "$ARCHIVE_SHA256"
+          test "$BASE_ARCHIVE_B64_CHARS" = "134108"
+          test "$FINAL_COMMIT" = "17ba40dcfc3b0b23a6c35575beed90aff17e9c12"
+
+          {
+            echo "SOURCE_COMMIT=$SOURCE_COMMIT"
+            echo "SOURCE_TREE=$SOURCE_TREE"
+            echo "ARCHIVE_SHA256=$ARCHIVE_SHA256"
+            echo "BASE_ARCHIVE_B64_CHARS=$BASE_ARCHIVE_B64_CHARS"
+            echo "FINAL_COMMIT=$FINAL_COMMIT"
+            echo "FINAL_TREE=$FINAL_TREE"
+            echo "PATCH_SHA256=$PATCH_SHA256"
+            echo "PATCH_GZIP_SHA256=$PATCH_GZIP_SHA256"
+            echo "PATCH_GZIP_B64_CHARS=$PATCH_GZIP_B64_CHARS"
+          } >> "$GITHUB_ENV"
+
+      - name: Reconstruct exact earned 6fdfa67 archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          : > /tmp/source.b64.raw
+
+          for i in $(seq 0 67); do
+            n=$(printf "%03d" "$i")
+            shopt -s nullglob
+            overrides=(transfer/source-overrides/part."$n".*)
+            shopt -u nullglob
+
+            if [ "${#overrides[@]}" -gt 0 ]; then
+              printf '%s\n' "${overrides[@]}" | sort | while read -r f; do
+                cat "$f"
+              done >> /tmp/source.b64.raw
+            else
+              test -f "transfer/part.$n"
+              cat "transfer/part.$n" >> /tmp/source.b64.raw
+            fi
+          done
+
+          tr -d '\r\n\t ' < /tmp/source.b64.raw > /tmp/source.b64
+          test "$(wc -c < /tmp/source.b64)" -eq "$BASE_ARCHIVE_B64_CHARS"
+          base64 -d /tmp/source.b64 > /tmp/source.tar.gz
+          echo "$ARCHIVE_SHA256  /tmp/source.tar.gz" | sha256sum -c -
+
+      - name: Reconstruct hardening tree patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d transfer/hardening
+
+          find transfer/hardening -maxdepth 1 -type f -name 'part.*' -print \
+            | sort \
+            | while read -r f; do cat "$f"; done \
+            | tr -d '\r\n\t ' > /tmp/hardening.patch.gz.b64
+
+          test "$(wc -c < /tmp/hardening.patch.gz.b64)" -eq "$PATCH_GZIP_B64_CHARS"
+          base64 -d /tmp/hardening.patch.gz.b64 > /tmp/hardening.patch.gz
+          echo "$PATCH_GZIP_SHA256  /tmp/hardening.patch.gz" | sha256sum -c -
+          gzip -dc /tmp/hardening.patch.gz > /tmp/hardening.patch
+          echo "$PATCH_SHA256  /tmp/hardening.patch" | sha256sum -c -
+
+      - name: Materialize exact source tree as destination-history commit
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Remove destination tracked files, preserving only .git metadata.
+          git rm -r -f . >/dev/null 2>&1 || true
+          git clean -fdx -e .git >/dev/null 2>&1 || true
+
+          tar -xzf /tmp/source.tar.gz
+          git add -A
+
+          actual_tree="$(git write-tree)"
+          test "$actual_tree" = "$SOURCE_TREE"
+
+          git commit -m "Materialize exact earned StillPoint Core source tree
+
+          Source commit: $SOURCE_COMMIT
+          Source tree: $SOURCE_TREE
+          Archive SHA-256: $ARCHIVE_SHA256"
+
+          test "$(git rev-parse HEAD^{tree})" = "$SOURCE_TREE"
+
+      - name: Apply Patch 001-005 hardened tree delta
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git apply --binary --index /tmp/hardening.patch
+
+          actual_tree="$(git write-tree)"
+          test "$actual_tree" = "$FINAL_TREE"
+
+          git commit -m "Harden StillPoint Core through Patch 005
+
+          Local provenance final commit: $FINAL_COMMIT
+          Final tree: $FINAL_TREE
+          Schema: 9
+          Temporal authority, durable dispatch, release/re-entry,
+          boundary audits, packaging and release hardening."
+
+          test "$(git rev-parse HEAD^{tree})" = "$FINAL_TREE"
+
+      - name: Install source package
+        run: python -m pip install .
+
+      - name: Fresh schema 9 and schema 4 to 9 upgrade
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import shutil, tempfile
+          from stillpoint.db import CompanyDB
+
+          root=Path.cwd()
+          with tempfile.TemporaryDirectory() as d:
+              d=Path(d)
+              fresh=d/"fresh.sqlite"
+              with CompanyDB(fresh, migrations_dir=root/"migrations") as db:
+                  assert db.schema_version == 9, db.schema_version
+
+              oldm=d/"migrations4"
+              oldm.mkdir()
+              for n in range(1,5):
+                  src=next((root/"migrations").glob(f"{n:03d}_*.sql"))
+                  shutil.copy2(src,oldm/src.name)
+
+              upgrade=d/"upgrade.sqlite"
+              with CompanyDB(upgrade,migrations_dir=oldm) as db:
+                  assert db.schema_version == 4, db.schema_version
+              with CompanyDB(upgrade,migrations_dir=root/"migrations") as db:
+                  assert db.schema_version == 9, db.schema_version
+          print("fresh schema 9 and 4->9 upgrade PASS")
+          PY
+
+      - name: Complete non-eval suite
+        run: python -m unittest discover -s tests -q
+
+      - name: Authority boundary audit
+        run: python tools/audit_action_request_boundaries.py .
+
+      - name: Company boundary audit
+        run: python tools/audit_company_boundaries.py .
+
+      - name: Frozen evaluator integrity
+        run: python -c "from eval.frozen import verify_frozen_corpora; print(verify_frozen_corpora())"
+
+      - name: Source doctor
+        env:
+          STILLPOINT_ROOT: ${{ github.workspace }}
+          STILLPOINT_PROVIDER: mock
+        run: python -m stillpoint.cli doctor
+
+      - name: Evaluator gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          python eval/run_eval.py
+          rc=$?
+          set -e
+          test "$rc" -eq 0 -o "$rc" -eq 1
+          python eval/run_calibrated.py
+          python eval/release_gate.py
+
+      - name: Build and smoke-test wheel
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip wheel . --no-deps -w /tmp/stillpoint-dist
+          python -m venv /tmp/stillpoint-wheel-venv
+          /tmp/stillpoint-wheel-venv/bin/python -m pip install /tmp/stillpoint-dist/*.whl
+          tmpdir="$(mktemp -d)"
+          (
+            cd "$tmpdir"
+            STILLPOINT_ROOT="$tmpdir" STILLPOINT_PROVIDER=mock \
+              /tmp/stillpoint-wheel-venv/bin/stillpoint doctor
+          )
+
+      - name: Verify tested tree did not drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^{tree})" = "$FINAL_TREE"
+          git diff --exit-code
+          git diff --cached --exit-code
+
+      - name: Push validated hardened Core to integration branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin HEAD:integration/full-core-consolidation
