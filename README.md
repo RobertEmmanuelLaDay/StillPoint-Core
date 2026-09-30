@@ -1,4 +1,13 @@
-# StillPoint Core
+# StillPoint Core — Historical Export
+
+> **Source-of-truth status:** This repository is preserved as a historical engineering export and evidence surface. It is **not** the active StillPoint Core development authority.
+>
+> Active Core source: `FortCollinsBarber-netizen/StillPoint-Core-Canonical`.
+>
+> The qualified Calendar + AcquireBound convergence was promoted there through PR #71 and is contained in canonical Core `main` at merge commit `d15826e9cd7c961129491bd795a974298ca843da`.
+>
+> Do not start new workers, PRs, releases, or authority-bearing development from this export unless the RobertOS ten-office council explicitly performs a migration/reconstitution. Existing commits and branches remain historical evidence.
+
 
 StillPoint is a provider-independent company operating-system runtime. Robert Emmanuel LaDay is the sole human CEO and final authority. The runtime coordinates durable company functions—Orchestra, Author, Press, Signal, Ledger, Research, Builder, and targeted Still Point review—without making any model or provider the company itself.
 
