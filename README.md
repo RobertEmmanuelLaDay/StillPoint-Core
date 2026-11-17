@@ -52,3 +52,11 @@ python -m unittest discover -s tests -q
 ## Authority
 
 Robert Emmanuel LaDay remains the sole human CEO and final authority. Authorship is not epistemic sovereignty.
+
+## Checkpoint 004 — current authority versus historical custody (2026-11-17)
+
+This historical export does not implement or own the selected calendar; current authority is Canonical Core. Do not restart old executable assumptions.
+
+Robert Emmanuel LaDay's November 17, 2026 author-selected working calendar rules are documented in [StillPoint Core Canonical](https://github.com/FortCollinsBarber-netizen/StillPoint-Core-Canonical/blob/90896d71faa11ceb69106434d459f0b25fe56e41/docs/STILLPOINT_TEMPORAL_ARCHITECTURE_AUTHOR_SELECTION_2026-11-17.md): **Common March 25** sacred source-year anchor; **2027** Jubilee epoch; **overlapping 49-year cycles**; distinct **364-day civil grid**; finite **2026–2075** publication. The first proclamation year **2076** is only a mathematical result until separately published and qualified. No civil debt/property/legal action is automatically enacted.
+
+Earlier documents, snapshots, frozen eval fixtures and old calendar defaults remain immutable **as historical evidence**, but no historical lock grants permanent operating jurisdiction. Author-approved successor versions require traceable provenance, matching runtime/contracts/resources, cross-repository qualification, and tests. Current runtime authority must not be inferred from this repository's older checkpoint or a file named `canonical`.
