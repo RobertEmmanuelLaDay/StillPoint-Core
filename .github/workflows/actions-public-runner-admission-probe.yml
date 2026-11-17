@@ -1,0 +1,20 @@
+name: Public account runner admission probe
+
+on:
+  push:
+    branches:
+      - diagnostic/actions-public-runner-2026-11-17
+
+permissions:
+  contents: read
+
+jobs:
+  admission-probe:
+    name: Minimal Ubuntu runner admission on public repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Verify runner starts
+        run: |
+          echo "RUNNER_ASSIGNED_AND_STEP_EXECUTED"
+          uname -a
